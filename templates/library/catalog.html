@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Каталог библиотеки | Школьный портал{% endblock %}
+{% block page_title %}Школьная библиотека{% endblock %}
+{% block page_subtitle %}Электронный каталог книг, учебников и периодики{% endblock %}
+
+{% block content %}
+<!-- Section Tabs (Все книги / Новинки / Популярное) -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+  <div class="nav-tabs" style="margin-bottom: 0;">
+    <a href="?section=all" class="tab-btn {% if section == 'all' %}active{% endif %}">
+      📚 Все книги
+    </a>
+    <a href="?section=new" class="tab-btn {% if section == 'new' %}active{% endif %}">
+      ✨ Новинки
+    </a>
+    <a href="?section=popular" class="tab-btn {% if section == 'popular' %}active{% endif %}">
+      🔥 Популярное
+    </a>
+  </div>
+
+  <div style="display: flex; gap: 10px;">
+    {% if request.user.is_librarian or request.user.is_director %}
+      <a href="{% url 'library:librarian_cabinet' %}" class="btn btn-primary btn-sm">
+        ⚙️ Кабинет библиотекаря
+      </a>
+    {% endif %}
+    <a href="{% url 'library:my_books' %}" class="btn btn-outline btn-sm">
+      🔖 Мой формуляр и брони
+    </a>
+  </div>
+</div>
+
+<!-- Search & Multi-Filters Card -->
+<div class="card" style="padding: 18px 22px; margin-bottom: 24px;">
+  <form method="get">
+    <input type="hidden" name="section" value="{{ section }}">
+
+    <div style="display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;">
+      <div style="flex: 3; min-width: 240px;">
+        <input type="text" name="q" class="form-control" placeholder="Поиск по названию, автору или ISBN..." value="{{ selected_q }}">
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary">🔍 Найти книги</button>
+      </div>
+      {% if selected_q or selected_genre or selected_grade or selected_lang or available_only %}
+        <div>
+          <a href="{% url 'library:catalog' %}?section={{ section }}" class="btn btn-outline">Сбросить</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Filters Row -->
+    <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+      <div style="min-width: 170px;">
+        <select name="genre" class="form-select" style="font-size: 0.85rem;" onchange="this.form.submit()">
+          <option value="">Все жанры</option>
+          {% for g in genres %}
+            <option value="{{ g.id }}" {% if selected_genre == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="min-width: 140px;">
+        <select name="grade" class="form-select" style="font-size: 0.85rem;" onchange="this.form.submit()">
+          <option value="">Любой класс</option>
+          {% for gr in grade_choices %}
+            <option value="{{ gr }}" {% if selected_grade == gr|stringformat:"s" %}selected{% endif %}>{{ gr }} класс</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="min-width: 140px;">
+        <select name="lang" class="form-select" style="font-size: 0.85rem;" onchange="this.form.submit()">
+          <option value="">Все языки</option>
+          {% for lcode, lname in lang_choices %}
+            <option value="{{ lcode }}" {% if selected_lang == lcode %}selected{% endif %}>{{ lname }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px;">
+        <input type="checkbox" name="available" value="1" id="availableCheck" {% if available_only %}checked{% endif %} onchange="this.form.submit()">
+        <label for="availableCheck" style="font-size: 0.88rem; font-weight: 500; cursor: pointer;">
+          Только в наличии
+        </label>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Teacher Recommendations Spotlight -->
+{% if recommendations and not selected_q and not selected_genre %}
+  <div style="margin-bottom: 24px;">
+    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+      🌟 Рекомендовано учителями школы
+    </h3>
+    <div class="recommendations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px;">
+      {% for rec in recommendations %}
+        <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-sm);">
+          <div style="font-size: 2rem;">📖</div>
+          <div style="flex: 1; min-width: 0;">
+            <a href="{% url 'library:book_detail' rec.book.id %}" style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              {{ rec.book.title }}
+            </a>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">{{ rec.book.author }}</div>
+            <div style="font-size: 0.78rem; color: var(--primary); margin-top: 2px;">
+              👨‍🏫 {{ rec.teacher.display_name }} {% if rec.target_class %}(для {{ rec.target_class.name }}){% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+<!-- Books Grid -->
+{% if books %}
+  <div class="books-grid">
+    {% for book in books %}
+      <div class="book-card">
+        <div class="book-cover-wrap">
+          {% if book.cover_image %}
+            <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" class="book-cover-img">
+          {% else %}
+            <div class="book-placeholder">📖</div>
+          {% endif %}
+
+          <!-- Availability Tag floating on cover -->
+          <div style="position: absolute; top: 10px; right: 10px;">
+            <span class="badge {{ book.status_badge_class }}">
+              {{ book.status_display }}
+            </span>
+          </div>
+
+          {% if book.is_new %}
+            <div style="position: absolute; top: 10px; left: 10px;">
+              <span class="badge" style="background: #2563eb; color: white;">Новинка</span>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="book-card-body">
+          <div style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+            {% if book.genre %}
+              <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ book.genre.name }}</span>
+            {% endif %}
+            {% if book.grade_level %}
+              <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ book.grade_level }} кл.</span>
+            {% endif %}
+            <span class="badge badge-secondary" style="font-size: 0.7rem;">{{ book.get_language_display }}</span>
+          </div>
+
+          <h3 class="book-title" title="{{ book.title }}">
+            <a href="{% url 'library:book_detail' book.id %}">{{ book.title }}</a>
+          </h3>
+          <div class="book-author">{{ book.author }}</div>
+
+          <div class="book-meta">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+              Экземпляров: <strong>{{ book.available_copies_count }}</strong> / {{ book.total_copies_count }}
+            </span>
+            <a href="{% url 'library:book_detail' book.id %}" class="btn btn-outline btn-sm">
+              Подробнее →
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 48px; color: var(--text-muted);">
+    <div style="font-size: 3rem; margin-bottom: 12px;">🔍</div>
+    <h3 style="font-weight: 700; margin-bottom: 8px;">Книги не найдены</h3>
+    <p style="font-size: 0.95rem;">Попробуйте изменить параметры поиска или сбросить фильтры.</p>
+    <div style="margin-top: 16px;">
+      <a href="{% url 'library:catalog' %}" class="btn btn-primary btn-sm">Показать все книги</a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+

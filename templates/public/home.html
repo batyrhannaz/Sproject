@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Школа №1 | Официальный сайт и библиотека{% endblock %}
+{% block page_title %}Школа-гимназия №1{% endblock %}
+{% block page_subtitle %}Единый образовательный портал, электронный дневник и цифровая библиотека{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="card hero-card" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; border-radius: var(--radius-lg); margin-bottom: 28px; box-shadow: var(--shadow-lg);">
+  <div style="max-width: 680px;">
+    <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 12px;">
+      Добро пожаловать в образовательную экосистему
+    </div>
+    <h1 class="hero-title">
+      Школьный портал: дневник, кабинеты и библиотека
+    </h1>
+    <p class="hero-desc">
+      Система объединяет электронный журнал, табель успеваемости, коммуникацию учителей и родителей с современной школьной библиотекой.
+    </p>
+
+    <div class="hero-actions">
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'dashboard' %}" class="btn hero-btn" style="background: white; color: var(--primary);">
+          🚀 Перейти в кабинет ({{ request.user.role_title }})
+        </a>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn hero-btn" style="background: white; color: var(--primary);">
+          🔑 Войти в систему
+        </a>
+      {% endif %}
+      <a href="{% url 'library:catalog' %}" class="btn btn-outline hero-btn" style="background: rgba(255, 255, 255, 0.15); color: white; border-color: rgba(255, 255, 255, 0.4);">
+        📖 Каталог библиотеки
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- School Features / Stats -->
+<div class="grid-4" style="margin-bottom: 28px;">
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">🎒</div>
+    <div>
+      <div class="stat-value">1 250+</div>
+      <div class="stat-label">Учеников школы</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-green">👩‍🏫</div>
+    <div>
+      <div class="stat-value">64</div>
+      <div class="stat-label">Опытных педагога</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-amber">📖</div>
+    <div>
+      <div class="stat-value">8 500+</div>
+      <div class="stat-label">Книг в библиотеке</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">🏆</div>
+    <div>
+      <div class="stat-value">98%</div>
+      <div class="stat-label">Поступление в вузы</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- 1. School News -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📰 Новости школы</h2>
+      <a href="{% url 'news_list' %}" class="btn btn-outline btn-sm">Все новости →</a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      {% for n in news_list %}
+        <div style="padding-bottom: 14px; border-bottom: 1px solid var(--border-light);">
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px;">{{ n.published_at|date:"d.m.Y" }}</div>
+          <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">
+            <a href="{% url 'news_detail' n.id %}" style="color: var(--text-main);">{{ n.title }}</a>
+          </h3>
+          <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5;">{{ n.summary|truncatechars:140 }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 2. School Announcements -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📢 Общешкольные объявления</h2>
+      <a href="{% url 'school:announcements' %}" class="btn btn-outline btn-sm">Все объявления →</a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      {% for a in announcements %}
+        <div style="padding: 12px 14px; background: var(--bg-card-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); {% if a.is_important %}border-left: 4px solid var(--danger);{% endif %}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <strong style="font-size: 0.95rem; color: var(--text-main);">{{ a.title }}</strong>
+            {% if a.is_important %}<span class="badge badge-danger" style="font-size: 0.7rem;">ВАЖНО</span>{% endif %}
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">{{ a.content|truncatechars:150 }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- 3. New Books in Library Preview -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">📚 Новинки школьной библиотеки</h2>
+    <a href="{% url 'library:catalog' %}?section=new" class="btn btn-outline btn-sm">Смотреть все новинки →</a>
+  </div>
+
+  <div class="books-grid">
+    {% for book in new_books %}
+      <div class="book-card">
+        <div class="book-cover-wrap" style="height: 180px;">
+          {% if book.cover_image %}
+            <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" class="book-cover-img">
+          {% else %}
+            <div class="book-placeholder" style="font-size: 2.5rem;">📖</div>
+          {% endif %}
+          <div style="position: absolute; top: 8px; right: 8px;">
+            <span class="badge {{ book.status_badge_class }}">{{ book.status_display }}</span>
+          </div>
+        </div>
+        <div class="book-card-body" style="padding: 12px;">
+          <h3 class="book-title" style="font-size: 0.92rem;">
+            <a href="{% url 'library:book_detail' book.id %}">{{ book.title }}</a>
+          </h3>
+          <div class="book-author" style="font-size: 0.8rem;">{{ book.author }}</div>
+          <div class="book-meta" style="padding-top: 8px;">
+            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ book.available_copies_count }} в наличии</span>
+            <a href="{% url 'library:book_detail' book.id %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 3px 8px;">
+              Бронь →
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+

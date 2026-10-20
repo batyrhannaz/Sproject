@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Личные сообщения | Школьный портал{% endblock %}
+{% block page_title %}Личные сообщения{% endblock %}
+{% block page_subtitle %}Прямая связь между родителями, учителями, администрацией и библиотекарем{% endblock %}
+
+{% block content %}
+<div class="grid-aside-2-1">
+  <!-- Messages List -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display: flex; gap: 12px;">
+        <button type="button" class="tab-btn active" id="tabInboxBtn" onclick="switchMessagesTab('inbox')">
+          📥 Входящие ({{ inbox|length }})
+        </button>
+        <button type="button" class="tab-btn" id="tabOutboxBtn" onclick="switchMessagesTab('outbox')">
+          📤 Отправленные ({{ outbox|length }})
+        </button>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" data-open-modal="composeModal">
+        ✏️ Написать
+      </button>
+    </div>
+
+    <!-- Inbox List -->
+    <div id="inboxList" style="display: flex; flex-direction: column; gap: 10px;">
+      {% for msg in inbox %}
+        <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: {% if not msg.is_read %}#eff6ff; border-left: 4px solid var(--primary);{% else %}var(--bg-card-subtle);{% endif %}; transition: var(--transition);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div>
+              <span class="badge {{ msg.sender.role_badge_class }}" style="margin-right: 6px;">{{ msg.sender.role_title }}</span>
+              <strong style="color: var(--text-main);">{{ msg.sender.display_name }}</strong>
+            </div>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">{{ msg.created_at|date:"d.m.Y H:i" }}</span>
+          </div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; color: var(--text-main);">
+            {{ msg.subject }}
+          </div>
+          <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; white-space: pre-line;">
+            {{ msg.body }}
+          </div>
+          {% if not msg.is_read %}
+            <div style="margin-top: 8px;">
+              <a href="?read_id={{ msg.id }}" class="btn btn-outline btn-sm" style="font-size: 0.76rem;">
+                ✓ Отметить как прочитанное
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+          Входящих сообщений нет
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Outbox List -->
+    <div id="outboxList" style="display: none; flex-direction: column; gap: 10px;">
+      {% for msg in outbox %}
+        <div style="padding: 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Кому:</span>
+              <strong style="color: var(--text-main);">{{ msg.recipient.display_name }}</strong>
+              <span class="badge {{ msg.recipient.role_badge_class }}">{{ msg.recipient.role_title }}</span>
+            </div>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">{{ msg.created_at|date:"d.m.Y H:i" }}</span>
+          </div>
+          <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;">{{ msg.subject }}</div>
+          <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; white-space: pre-line;">{{ msg.body }}</div>
+        </div>
+      {% empty %}
+        <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+          Вы ещё не отправляли сообщений
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Quick Compose Box -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">✏️ Быстрое сообщение</h2>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Кому отправить:</label>
+        <select name="recipient_id" class="form-select" required>
+          <option value="">-- Выберите адресата --</option>
+          {% for r in recipients %}
+            <option value="{{ r.id }}">
+              {{ r.display_name }} ({{ r.role_title }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Тема:</label>
+        <input type="text" name="subject" class="form-control" placeholder="Тема сообщения" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Текст сообщения:</label>
+        <textarea name="body" class="form-control" rows="5" placeholder="Напишите ваше сообщение..." required></textarea>
+      </div>
+
+      <div style="margin-top: 18px;">
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          ✉️ Отправить сообщение
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Compose (Alternate) -->
+<div class="modal-overlay" id="composeModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">✉️ Новое сообщение</h3>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Получатель:</label>
+          <select name="recipient_id" class="form-select" required>
+            <option value="">-- Выберите адресата --</option>
+            {% for r in recipients %}
+              <option value="{{ r.id }}">{{ r.display_name }} ({{ r.role_title }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Тема:</label>
+          <input type="text" name="subject" class="form-control" placeholder="Тема сообщения" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Текст:</label>
+          <textarea name="body" class="form-control" rows="5" placeholder="Введите текст сообщения..." required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close-modal>Отмена</button>
+        <button type="submit" class="btn btn-primary">Отправить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function switchMessagesTab(tab) {
+    const inbox = document.getElementById('inboxList');
+    const outbox = document.getElementById('outboxList');
+    const inboxBtn = document.getElementById('tabInboxBtn');
+    const outboxBtn = document.getElementById('tabOutboxBtn');
+
+    if (tab === 'inbox') {
+      inbox.style.display = 'flex';
+      outbox.style.display = 'none';
+      inboxBtn.classList.add('active');
+      outboxBtn.classList.remove('active');
+    } else {
+      inbox.style.display = 'none';
+      outbox.style.display = 'flex';
+      inboxBtn.classList.remove('active');
+      outboxBtn.classList.add('active');
+    }
+  }
+</script>
+{% endblock %}
+

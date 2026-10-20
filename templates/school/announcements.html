@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Объявления | Школьный портал{% endblock %}
+{% block page_title %}Школьные объявления{% endblock %}
+{% block page_subtitle %}Важные новости, события и уведомления от администрации и преподавателей{% endblock %}
+
+{% block content %}
+<div class="grid-aside-2-1">
+  <!-- Announcements Feed -->
+  <div style="display: flex; flex-direction: column; gap: 16px;">
+    {% for a in announcements %}
+      <div class="card" style="margin-bottom: 0; {% if a.is_important %}border-left: 5px solid var(--danger); background: linear-gradient(180deg, #fff, #fff9f9);{% endif %}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <div>
+            {% if a.is_important %}
+              <span class="badge badge-danger" style="margin-right: 6px;">⚡ ВАЖНО</span>
+            {% endif %}
+            <span class="badge badge-secondary">{{ a.get_target_role_display }}</span>
+            {% if a.target_class %}
+              <span class="badge badge-primary">Для {{ a.target_class.name }}</span>
+            {% endif %}
+          </div>
+          <span style="font-size: 0.78rem; color: var(--text-muted);">{{ a.created_at|date:"d.m.Y H:i" }}</span>
+        </div>
+
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
+          {{ a.title }}
+        </h3>
+
+        <div style="color: var(--text-main); font-size: 0.92rem; line-height: 1.6; white-space: pre-line;">
+          {{ a.content }}
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-light); font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+          <span>👤 Автор: <strong>{{ a.author.display_name }}</strong> ({{ a.author.role_title }})</span>
+        </div>
+      </div>
+    {% empty %}
+      <div class="card" style="text-align: center; padding: 40px; color: var(--text-muted);">
+        Объявлений пока нет
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Sidebar: Publish announcement (for teacher/director/librarian) -->
+  <div>
+    {% if request.user.is_teacher or request.user.is_director or request.user.is_librarian %}
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📢 Новое объявление</h2>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="form-label">Заголовок:</label>
+            <input type="text" name="title" class="form-control" placeholder="Заголовок объявления" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Текст сообщения:</label>
+            <textarea name="content" class="form-control" rows="5" placeholder="Напишите текст объявления..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Кому адресовано:</label>
+            <select name="target_role" class="form-select">
+              <option value="all">Всей школе</option>
+              <option value="students">Только ученикам</option>
+              <option value="parents">Только родителям</option>
+              <option value="teachers">Только учителям</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Конкретный класс (необязательно):</label>
+            <select name="target_class" class="form-select">
+              <option value="">Для всех классов</option>
+              {% for c in classes %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="is_important" id="id_important">
+            <label for="id_important" style="font-size: 0.88rem; font-weight: 600; cursor: pointer;">
+              Пометить как важное (выделить красным)
+            </label>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              Опубликовать
+            </button>
+          </div>
+        </form>
+      </div>
+    {% else %}
+      <div class="card">
+        <div style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+          💡 Все общешкольные и классные объявления отображаются здесь и в вашем личном кабинете.
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

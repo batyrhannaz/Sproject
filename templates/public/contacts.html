@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Контакты | Школа №1{% endblock %}
+{% block page_title %}Контакты и приёмная{% endblock %}
+{% block page_subtitle %}Адрес, график работы администрации и обратная связь{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🏫 Школа-гимназия №1</h2>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.95rem;">
+      <div>
+        <strong style="color: var(--text-main);">📍 Адрес:</strong>
+        <p style="color: var(--text-muted); margin-top: 2px;">г. Бишкек, Первомайский район, ул. Московская, 154</p>
+      </div>
+
+      <div>
+        <strong style="color: var(--text-main);">📞 Телефоны:</strong>
+        <p style="color: var(--text-muted); margin-top: 2px;">
+          Приёмная директора: +996 (312) 62-11-20<br>
+          Учительская / завучи: +996 (312) 62-11-25<br>
+          Школьная библиотека: +996 (312) 62-11-30
+        </p>
+      </div>
+
+      <div>
+        <strong style="color: var(--text-main);">✉️ Электронная почта:</strong>
+        <p style="color: var(--text-muted); margin-top: 2px;">info@school1.edu.kg</p>
+      </div>
+
+      <div>
+        <strong style="color: var(--text-main);">🕒 График работы:</strong>
+        <p style="color: var(--text-muted); margin-top: 2px;">
+          Понедельник – Пятница: 08:00 – 18:30<br>
+          Суббота: 08:30 – 14:00 (факультативы и кружки)<br>
+          Воскресенье: выходной
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">✉️ Обратная связь и обращения</h2>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Ваше имя (ФИО):</label>
+        <input type="text" name="name" class="form-control" placeholder="Иван Иванов" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email или телефон для ответа:</label>
+        <input type="text" name="contact" class="form-control" placeholder="example@mail.ru или +996..." required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Тема обращения:</label>
+        <input type="text" name="subject" class="form-control" placeholder="Вопрос по приёму, учёбе, библиотеке...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Текст обращения:</label>
+        <textarea name="message" class="form-control" rows="4" placeholder="Опишите ваш вопрос..." required></textarea>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          Отправить обращение в приёмную
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,768 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Кабинет библиотекаря | Школьный портал{% endblock %}
+{% block page_title %}Кабинет библиотекаря{% endblock %}
+{% block page_subtitle %}Управление книжным фондом, бронированиями, выдачей и читателями{% endblock %}
+
+{% block content %}
+<!-- Top Metrics Row -->
+<div class="grid-4" style="margin-bottom: 24px;">
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">📚</div>
+    <div>
+      <div class="stat-value">{{ total_copies }}</div>
+      <div class="stat-label">Экземпляров в фонде</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-green">📖</div>
+    <div>
+      <div class="stat-value">{{ active_borrows_count }}</div>
+      <div class="stat-label">Книг выдано на руки</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon {% if pending_reservations|length > 0 %}stat-amber{% else %}stat-blue{% endif %}">⏳</div>
+    <div>
+      <div class="stat-value">{{ pending_reservations|length }}</div>
+      <div class="stat-label">Заявок на бронь</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon {% if overdue_count > 0 %}stat-red{% else %}stat-green{% endif %}">⚠️</div>
+    <div>
+      <div class="stat-value">{{ overdue_count }}</div>
+      <div class="stat-label">Просроченных выдач</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs Navigation -->
+<div class="nav-tabs" style="background: white; padding: 6px 14px 0; border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+  <a href="?tab=borrows" class="tab-btn {% if current_tab == 'borrows' %}active{% endif %}">
+    📋 Выдача и возврат
+  </a>
+  <a href="?tab=reservations" class="tab-btn {% if current_tab == 'reservations' %}active{% endif %}">
+    ⏳ Бронирования {% if pending_reservations|length > 0 %}<span class="badge badge-warning" style="margin-left: 4px;">{{ pending_reservations|length }}</span>{% endif %}
+  </a>
+  <a href="?tab=debtors" class="tab-btn {% if current_tab == 'debtors' %}active{% endif %}">
+    ⚠️ Должники {% if overdue_count > 0 %}<span class="badge badge-danger" style="margin-left: 4px;">{{ overdue_count }}</span>{% endif %}
+  </a>
+  <a href="?tab=catalog" class="tab-btn {% if current_tab == 'catalog' %}active{% endif %}">
+    📑 Каталог и экземпляры
+  </a>
+  <a href="?tab=reports" class="tab-btn {% if current_tab == 'reports' %}active{% endif %}">
+    📊 Отчёты и фонд
+  </a>
+  <a href="?tab=rules" class="tab-btn {% if current_tab == 'rules' %}active{% endif %}">
+    ⚙️ Правила библиотеки
+  </a>
+</div>
+
+<!-- ========================================================
+     TAB 1: BORROWS & QUICK ISSUE & RETURN
+     ======================================================== -->
+{% if current_tab == 'borrows' %}
+  <div class="grid-aside-2-1">
+    <!-- Active Borrows Table -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📖 Книги на руках у читателей</h2>
+        <span class="badge badge-primary">{{ filtered_borrows|length }} выдач</span>
+      </div>
+
+      <!-- Live Search / Filter in Table -->
+      <form method="get" style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <input type="hidden" name="tab" value="borrows">
+        <input type="text" name="search_reader" class="form-control" placeholder="Поиск по читателю, книге или инв. номеру..." value="{{ search_reader }}">
+        <button type="submit" class="btn btn-primary btn-sm">Найти</button>
+        {% if search_reader %}
+          <a href="?tab=borrows" class="btn btn-outline btn-sm">Сброс</a>
+        {% endif %}
+      </form>
+
+      <div class="table-responsive">
+        <table class="custom-table" style="font-size: 0.88rem;">
+          <thead>
+            <tr>
+              <th>Читатель</th>
+              <th>Книга (Инв. №)</th>
+              <th>Выдана</th>
+              <th>Срок сдачи</th>
+              <th>Статус</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in filtered_borrows %}
+              <tr style="{% if b.is_overdue %}background: #fef2f2;{% endif %}">
+                <td>
+                  <strong>{{ b.reader.display_name }}</strong>
+                  <div><span class="badge {{ b.reader.role_badge_class }}">{{ b.reader.role_title }}</span></div>
+                </td>
+                <td>
+                  <div style="font-weight: 600;">{{ b.copy.book.title }}</div>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">Инв. №: <code>{{ b.copy.inventory_number }}</code></div>
+                </td>
+                <td>{{ b.borrow_date|date:"d.m.Y" }}</td>
+                <td>
+                  <span style="font-weight: 700; {% if b.is_overdue %}color: #dc2626;{% endif %}">
+                    {{ b.due_date|date:"d.m.Y" }}
+                  </span>
+                </td>
+                <td>
+                  {% if b.is_overdue %}
+                    <span class="badge badge-overdue">Просрочено ({{ b.days_overdue }} дн.)</span>
+                  {% else %}
+                    <span class="badge badge-success">В срок</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <button type="button" class="btn btn-outline btn-sm" data-open-modal="returnModal_{{ b.id }}">
+                    Принять возврат
+                  </button>
+
+                  <!-- Return Book Modal -->
+                  <div class="modal-overlay" id="returnModal_{{ b.id }}">
+                    <div class="modal-dialog">
+                      <div class="modal-header">
+                        <h3 class="modal-title">Приём возврата книги</h3>
+                        <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+                      </div>
+                      <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="return_book">
+                        <input type="hidden" name="borrow_id" value="{{ b.id }}">
+                        <div class="modal-body">
+                          <p style="margin-bottom: 14px;">
+                            Принимается книга: <strong>«{{ b.copy.book.title }}»</strong> (№ {{ b.copy.inventory_number }})<br>
+                            Читатель: <strong>{{ b.reader.display_name }}</strong>
+                          </p>
+                          <div class="form-group">
+                            <label class="form-label">Состояние экземпляра при возврате:</label>
+                            <select name="return_condition" class="form-select">
+                              <option value="excellent">Отличное (как новая)</option>
+                              <option value="good" selected>Хорошее (без повреждений)</option>
+                              <option value="fair">Удовлетворительное (потёртости)</option>
+                              <option value="poor">Ветхое / требует ремонта</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-outline" data-close-modal>Отмена</button>
+                          <button type="submit" class="btn btn-success">✅ Подтвердить возврат</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">
+                  Книг на руках не найдено
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Quick Issue Form -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">⚡ Быстрая выдача книги</h2>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="quick_issue">
+
+        <div class="form-group">
+          <label class="form-label">Читатель:</label>
+          <select name="reader_id" class="form-select" required>
+            <option value="">-- Выберите читателя --</option>
+            {% for r in readers %}
+              <option value="{{ r.id }}">{{ r.display_name }} ({{ r.role_title }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Экземпляр книги (в наличии):</label>
+          <select name="copy_id" class="form-select" required>
+            <option value="">-- Выберите экземпляр --</option>
+            {% for cp in available_copies %}
+              <option value="{{ cp.id }}">
+                {{ cp.book.title }} (Инв. № {{ cp.inventory_number }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Срок выдачи (дней):</label>
+          <input type="number" name="loan_days" class="form-control" value="{{ settings.default_loan_days }}" min="1" max="180">
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+            По умолчанию из настроек: {{ settings.default_loan_days }} дней.
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <button type="submit" class="btn btn-primary" style="width: 100%;">
+            📤 Оформить выдачу
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<!-- ========================================================
+     TAB 2: RESERVATIONS
+     ======================================================== -->
+{% elif current_tab == 'reservations' %}
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">⏳ Заявки на бронирование книг</h2>
+      <span class="badge badge-warning">{{ pending_reservations|length }} заявок</span>
+    </div>
+
+    {% if pending_reservations %}
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Читатель</th>
+              <th>Книга</th>
+              <th>Дата заявки</th>
+              <th>Действительна до</th>
+              <th>Выделенный экземпляр</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for res in pending_reservations %}
+              <tr>
+                <td>
+                  <strong>{{ res.reader.display_name }}</strong>
+                  <div><span class="badge {{ res.reader.role_badge_class }}">{{ res.reader.role_title }}</span></div>
+                </td>
+                <td>
+                  <strong style="color: var(--primary);">{{ res.book.title }}</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">{{ res.book.author }}</div>
+                </td>
+                <td>{{ res.created_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ res.expires_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                  {% if res.copy %}
+                    <code>{{ res.copy.inventory_number }}</code>
+                  {% else %}
+                    <span style="color: var(--text-muted);">Свободный</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div style="display: flex; gap: 6px;">
+                    <form method="post" style="display: inline;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="fulfill_reservation">
+                      <input type="hidden" name="reservation_id" value="{{ res.id }}">
+                      <button type="submit" class="btn btn-success btn-sm">
+                        ✅ Выдать книгу
+                      </button>
+                    </form>
+                    <form method="post" style="display: inline;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="reject_reservation">
+                      <input type="hidden" name="reservation_id" value="{{ res.id }}">
+                      <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger);">
+                        ✕ Отклонить
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+        <div style="font-size: 2.5rem; margin-bottom: 8px;">🎉</div>
+        Нет активных заявок на бронирование
+      </div>
+    {% endif %}
+  </div>
+
+<!-- ========================================================
+     TAB 3: DEBTORS (ДОЛЖНИКИ)
+     ======================================================== -->
+{% elif current_tab == 'debtors' %}
+  <div class="card">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <h2 class="card-title" style="color: var(--danger);">⚠️ Список читателей-должников</h2>
+        <span class="badge badge-overdue">{{ overdue_borrows|length }} задолженностей</span>
+      </div>
+      <a href="{% url 'library:export_excel' %}" class="btn btn-outline btn-sm">
+        📊 Экспорт должников в Excel
+      </a>
+    </div>
+
+    {% if overdue_borrows %}
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Читатель</th>
+              <th>Контакты</th>
+              <th>Книга</th>
+              <th>Инв. №</th>
+              <th>Срок сдачи</th>
+              <th>Просрочка</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in overdue_borrows %}
+              <tr style="background: #fef2f2;">
+                <td>
+                  <strong>{{ b.reader.display_name }}</strong>
+                  <div><span class="badge {{ b.reader.role_badge_class }}">{{ b.reader.role_title }}</span></div>
+                </td>
+                <td style="font-size: 0.85rem;">
+                  <div>📧 {{ b.reader.linked_gmail|default:b.reader.email|default:"Нет почты" }}</div>
+                  <div>📞 {{ b.reader.phone|default:"Нет телефона" }}</div>
+                </td>
+                <td>
+                  <strong>{{ b.copy.book.title }}</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">{{ b.copy.book.author }}</div>
+                </td>
+                <td><code>{{ b.copy.inventory_number }}</code></td>
+                <td>{{ b.due_date|date:"d.m.Y" }}</td>
+                <td>
+                  <span class="badge badge-overdue" style="font-size: 0.85rem;">
+                    {{ b.days_overdue }} дней
+                  </span>
+                </td>
+                <td>
+                  <a href="{% url 'school:messages' %}" class="btn btn-outline btn-sm">
+                    ✉️ Напомнить
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 40px; color: var(--success-text);">
+        <div style="font-size: 2.5rem; margin-bottom: 8px;">✅</div>
+        Задолженностей нет! Все читатели сдали книги в срок.
+      </div>
+    {% endif %}
+  </div>
+
+<!-- ========================================================
+     TAB 4: CATALOG & COPIES MANAGEMENT
+     ======================================================== -->
+{% elif current_tab == 'catalog' %}
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; gap: 10px;">
+      <button type="button" class="btn btn-primary" data-open-modal="addBookModal">
+        ➕ Добавить книгу в каталог
+      </button>
+      <a href="{% url 'library:import_catalog' %}" class="btn btn-outline">
+        📥 Массовый импорт каталога (CSV/Excel)
+      </a>
+    </div>
+
+    <div style="font-size: 0.88rem; color: var(--text-muted);">
+      Всего наименований: <strong>{{ books_catalog|length }}</strong>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Книга / Автор</th>
+            <th>Жанр / Класс</th>
+            <th>Язык</th>
+            <th>Всего экз.</th>
+            <th>Доступно</th>
+            <th>Управление экземплярами</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in books_catalog %}
+            <tr>
+              <td>
+                <a href="{% url 'library:book_detail' b.id %}" style="font-weight: 700; color: var(--text-main);">
+                  {{ b.title }}
+                </a>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ b.author }} {% if b.isbn %}(ISBN: {{ b.isbn }}){% endif %}</div>
+              </td>
+              <td>
+                <span class="badge badge-secondary">{{ b.genre.name|default:"—" }}</span>
+                {% if b.grade_level %}<span class="badge badge-secondary">{{ b.grade_level }} кл.</span>{% endif %}
+              </td>
+              <td>{{ b.get_language_display }}</td>
+              <td><strong>{{ b.total_copies_count }}</strong></td>
+              <td>
+                <span class="badge {{ b.status_badge_class }}">{{ b.available_copies_count }}</span>
+              </td>
+              <td>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn btn-outline btn-sm" data-open-modal="addCopyModal_{{ b.id }}">
+                    + Экземпляр
+                  </button>
+                  <button type="button" class="btn btn-outline btn-sm" data-open-modal="copiesListModal_{{ b.id }}">
+                    Экземпляры ({{ b.copies.count }})
+                  </button>
+                </div>
+
+                <!-- Add Copy Modal -->
+                <div class="modal-overlay" id="addCopyModal_{{ b.id }}">
+                  <div class="modal-dialog">
+                    <div class="modal-header">
+                      <h3 class="modal-title">Добавить экземпляр: «{{ b.title }}»</h3>
+                      <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+                    </div>
+                    <form method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="add_copy">
+                      <input type="hidden" name="book_id" value="{{ b.id }}">
+                      <div class="modal-body">
+                        <div class="form-group">
+                          <label class="form-label">Инвентарный номер:</label>
+                          <input type="text" name="inventory_number" class="form-control" value="INV-{{ b.id }}-{{ b.copies.count|add:1|stringformat:'03d' }}" required>
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label">Состояние:</label>
+                          <select name="condition" class="form-select">
+                            <option value="excellent">Отличное</option>
+                            <option value="good" selected>Хорошее</option>
+                            <option value="fair">Удовлетворительное</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" data-close-modal>Отмена</button>
+                        <button type="submit" class="btn btn-primary">Добавить экземпляр</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Copies List & Write-off Modal -->
+                <div class="modal-overlay" id="copiesListModal_{{ b.id }}">
+                  <div class="modal-dialog" style="max-width: 650px;">
+                    <div class="modal-header">
+                      <h3 class="modal-title">Экземпляры: «{{ b.title }}»</h3>
+                      <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+                    </div>
+                    <div class="modal-body">
+                      <table class="custom-table" style="font-size: 0.85rem;">
+                        <thead>
+                          <tr>
+                            <th>Инв. №</th>
+                            <th>Состояние</th>
+                            <th>Статус</th>
+                            <th>Списание</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for cp in b.copies.all %}
+                            <tr>
+                              <td><code>{{ cp.inventory_number }}</code></td>
+                              <td>{{ cp.get_condition_display }}</td>
+                              <td><span class="badge badge-secondary">{{ cp.get_status_display }}</span></td>
+                              <td>
+                                {% if cp.status != 'written_off' %}
+                                  <form method="post" onsubmit="return confirm('Вы уверены, что хотите списать этот экземпляр?')">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="write_off_copy">
+                                    <input type="hidden" name="copy_id" value="{{ cp.id }}">
+                                    <input type="hidden" name="reason" value="Ветхость/утеря">
+                                    <button type="submit" class="btn btn-outline btn-sm" style="color: var(--danger); font-size: 0.74rem;">
+                                      Списать
+                                    </button>
+                                  </form>
+                                {% else %}
+                                  <span style="color: var(--danger); font-size: 0.75rem;">Списан</span>
+                                {% endif %}
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-outline" data-close-modal>Закрыть</button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal: Add New Book -->
+  <div class="modal-overlay" id="addBookModal">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">➕ Новая книга в каталог</h3>
+        <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+      </div>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_book">
+        <div class="modal-body">
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Название книги:</label>
+              <input type="text" name="title" class="form-control" required placeholder="Например: Капитанская дочка">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Автор:</label>
+              <input type="text" name="author" class="form-control" required placeholder="Например: А.С. Пушкин">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Жанр:</label>
+              <select name="genre" class="form-select">
+                <option value="">Без жанра</option>
+                {% for g in genres %}
+                  <option value="{{ g.id }}">{{ g.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Рекомендуемый класс:</label>
+              <select name="grade_level" class="form-select">
+                <option value="">Для всех</option>
+                {% for i in "1234567891011"|make_list %}
+                  <option value="{{ forloop.counter }}">{{ forloop.counter }} класс</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Язык:</label>
+              <select name="language" class="form-select">
+                <option value="ru">Русский</option>
+                <option value="kg">Кыргызча</option>
+                <option value="en">Английский</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Год издания:</label>
+              <input type="number" name="publication_year" class="form-control" placeholder="2024">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">ISBN:</label>
+              <input type="text" name="isbn" class="form-control" placeholder="978-...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Количество экземпляров:</label>
+              <input type="number" name="initial_copies" class="form-control" value="1" min="1" max="100">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Описание / Аннотация:</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Краткое содержание..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Обложка книги:</label>
+            <input type="file" name="cover_image" class="form-control" accept="image/*">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal>Отмена</button>
+          <button type="submit" class="btn btn-primary">Добавить книгу</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<!-- ========================================================
+     TAB 5: REPORTS & FUND STATISTICS & EXCEL EXPORT
+     ======================================================== -->
+{% elif current_tab == 'reports' %}
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+    <a href="{% url 'library:export_excel' %}" class="btn btn-success">
+      📊 Скачать полный отчёт в Excel (.xlsx)
+    </a>
+  </div>
+
+  <div class="grid-2">
+    <!-- Most popular books -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">🔥 Топ-10 популярных книг</h2>
+      </div>
+      <table class="custom-table" style="font-size: 0.88rem;">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Книга</th>
+            <th>Автор</th>
+            <th style="text-align: right;">Выдач всего</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in popular_books %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td><strong>{{ b.title }}</strong></td>
+              <td style="color: var(--text-muted);">{{ b.author }}</td>
+              <td style="text-align: right;"><span class="badge badge-primary">{{ b.borrow_count }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Most active readers -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">🏆 Самые активные читатели</h2>
+      </div>
+      <table class="custom-table" style="font-size: 0.88rem;">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Читатель</th>
+            <th>Роль</th>
+            <th style="text-align: right;">Прочитано</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in active_readers %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td><strong>{{ u.display_name }}</strong></td>
+              <td><span class="badge {{ u.role_badge_class }}">{{ u.role_title }}</span></td>
+              <td style="text-align: right;"><span class="badge badge-success">{{ u.borrows_total }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Fund by Genre -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📚 Распределение фонда по жанрам</h2>
+      </div>
+      <table class="custom-table" style="font-size: 0.88rem;">
+        <thead>
+          <tr>
+            <th>Жанр</th>
+            <th style="text-align: right;">Экземпляров</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in fund_by_genre %}
+            <tr>
+              <td>{{ g.name }}</td>
+              <td style="text-align: right;"><strong>{{ g.copies_count }}</strong> шт.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Fund by condition -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">🛠️ Физическое состояние фонда</h2>
+      </div>
+      <table class="custom-table" style="font-size: 0.88rem;">
+        <thead>
+          <tr>
+            <th>Состояние</th>
+            <th style="text-align: right;">Количество</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fc in fund_by_condition %}
+            <tr>
+              <td>{{ fc.condition }}</td>
+              <td style="text-align: right;"><strong>{{ fc.count }}</strong> экз.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+<!-- ========================================================
+     TAB 6: LIBRARY RULES & SETTINGS
+     ======================================================== -->
+{% elif current_tab == 'rules' %}
+  <div style="max-width: 600px;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">⚙️ Настройки и правила библиотеки</h2>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_settings">
+
+        <div class="form-group">
+          <label class="form-label">Срок выдачи по умолчанию (в днях):</label>
+          <input type="number" name="default_loan_days" class="form-control" value="{{ settings.default_loan_days }}" min="1" max="90" required>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            Стандартное значение по ТЗ: 14 дней.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Максимальный лимит книг на читателя (шт.):</label>
+          <input type="number" name="max_books_per_reader" class="form-control" value="{{ settings.max_books_per_reader }}" min="1" max="20" required>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            Стандартное значение по ТЗ: 3 книги на читателя.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Срок действия брони (в днях):</label>
+          <input type="number" name="reservation_validity_days" class="form-control" value="{{ settings.reservation_validity_days }}" min="1" max="14" required>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            Стандартное значение по ТЗ: 3 дня.
+          </div>
+        </div>
+
+        <div style="margin-top: 24px;">
+          <button type="submit" class="btn btn-primary">
+            💾 Сохранить правила библиотеки
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+

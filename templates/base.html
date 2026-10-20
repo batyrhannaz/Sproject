@@ -1,0 +1,434 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Школьный портал и библиотека{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="{% if request.user.is_authenticated and request.user.font_size == 'compact' %}font-compact{% elif request.user.is_authenticated and request.user.font_size == 'large' %}font-large{% endif %}">
+
+  <div class="app-layout">
+    {% if request.user.is_authenticated %}
+    <!-- ==========================================
+         SIDEBAR: Светлая карточка с профилем, поиск, сворачивание
+         ========================================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="{% url 'dashboard' %}" class="brand-link">
+          <div class="brand-icon">🎓</div>
+          <div class="brand-text">
+            <div>Школа №1</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">Портал & Библиотека</div>
+          </div>
+        </a>
+        <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Свернуть/развернуть меню">
+          ⇄
+        </button>
+        <button type="button" class="sidebar-close-btn" id="sidebarCloseBtn" title="Закрыть меню" aria-label="Закрыть меню">
+          ✕
+        </button>
+      </div>
+
+      <!-- Profile Light Card -->
+      <div class="sidebar-profile-card">
+        {% if request.user.avatar %}
+          <img src="{{ request.user.avatar.url }}" alt="{{ request.user.display_name }}" class="profile-avatar">
+        {% else %}
+          <div class="profile-avatar">
+            {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+          </div>
+        {% endif %}
+        <div class="profile-info">
+          <div class="profile-name" title="{{ request.user.display_name }}">{{ request.user.display_name }}</div>
+          <span class="profile-badge {{ request.user.role_badge_class }}">
+            {{ request.user.role_title }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick Search inside sidebar -->
+      <div class="sidebar-search">
+        <div class="sidebar-search-wrapper">
+          <input type="text" class="sidebar-search-input" id="sidebarSearch" placeholder="Поиск по меню...">
+        </div>
+      </div>
+
+      <!-- Navigation by Role -->
+      <nav class="sidebar-nav">
+        {% if request.user.is_student %}
+          <!-- УЧЕНИК -->
+          <div class="nav-group-title">Учебный процесс</div>
+          <a href="{% url 'school:student_cabinet' %}" class="nav-link {% if request.resolver_match.url_name == 'student_cabinet' %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Мой кабинет</span>
+          </a>
+          <a href="{% url 'school:schedule' %}" class="nav-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Расписание уроков</span>
+          </a>
+          
+          <div class="nav-group-title">Библиотека</div>
+          <a href="{% url 'library:catalog' %}" class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+            <span class="nav-icon">📖</span>
+            <span class="nav-label">Каталог книг</span>
+          </a>
+          <a href="{% url 'library:my_books' %}" class="nav-link {% if request.resolver_match.url_name == 'my_books' %}active{% endif %}">
+            <span class="nav-icon">🔖</span>
+            <span class="nav-label">Мои книги и брони</span>
+            {% if user_overdue_books_count > 0 %}
+              <span class="nav-counter counter-danger" title="Просрочено книг!">{{ user_overdue_books_count }}</span>
+            {% elif user_active_loans_count > 0 %}
+              <span class="nav-counter">{{ user_active_loans_count }}</span>
+            {% endif %}
+          </a>
+
+          <div class="nav-group-title">Школа</div>
+          <a href="{% url 'school:announcements' %}" class="nav-link {% if request.resolver_match.url_name == 'announcements' %}active{% endif %}">
+            <span class="nav-icon">📢</span>
+            <span class="nav-label">Объявления</span>
+          </a>
+          <a href="{% url 'school:messages' %}" class="nav-link {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Сообщения</span>
+            {% if unread_messages_count > 0 %}
+              <span class="nav-counter">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+
+        {% elif request.user.is_parent %}
+          <!-- РОДИТЕЛЬ -->
+          <div class="nav-group-title">Дети & Учёба</div>
+          <a href="{% url 'school:parent_cabinet' %}" class="nav-link {% if request.resolver_match.url_name == 'parent_cabinet' %}active{% endif %}">
+            <span class="nav-icon">👨‍👩‍👧</span>
+            <span class="nav-label">Кабинет родителя</span>
+          </a>
+          <a href="{% url 'school:schedule' %}" class="nav-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Расписание уроков</span>
+          </a>
+
+          <div class="nav-group-title">Библиотека</div>
+          <a href="{% url 'library:catalog' %}" class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+            <span class="nav-icon">📖</span>
+            <span class="nav-label">Каталог библиотеки</span>
+          </a>
+          <a href="{% url 'library:my_books' %}" class="nav-link {% if request.resolver_match.url_name == 'my_books' %}active{% endif %}">
+            <span class="nav-icon">🔖</span>
+            <span class="nav-label">Книги ребёнка</span>
+            {% if user_overdue_books_count > 0 %}
+              <span class="nav-counter counter-danger" title="Просрочка!">{{ user_overdue_books_count }}</span>
+            {% endif %}
+          </a>
+
+          <div class="nav-group-title">Связь</div>
+          <a href="{% url 'school:messages' %}" class="nav-link {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Учителям</span>
+            {% if unread_messages_count > 0 %}
+              <span class="nav-counter">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+          <a href="{% url 'school:announcements' %}" class="nav-link {% if request.resolver_match.url_name == 'announcements' %}active{% endif %}">
+            <span class="nav-icon">📢</span>
+            <span class="nav-label">Объявления</span>
+          </a>
+
+        {% elif request.user.is_teacher %}
+          <!-- УЧИТЕЛЬ -->
+          <div class="nav-group-title">Учебный процесс</div>
+          <a href="{% url 'school:teacher_cabinet' %}" class="nav-link {% if request.resolver_match.url_name == 'teacher_cabinet' %}active{% endif %}">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Кабинет учителя</span>
+          </a>
+          <a href="{% url 'school:class_journal' %}" class="nav-link {% if request.resolver_match.url_name == 'class_journal' %}active{% endif %}">
+            <span class="nav-icon">📝</span>
+            <span class="nav-label">Журнал класса</span>
+          </a>
+          <a href="{% url 'school:quarter_grades' %}" class="nav-link {% if request.resolver_match.url_name == 'quarter_grades' %}active{% endif %}">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Четвертные оценки</span>
+          </a>
+          <a href="{% url 'school:homework_manage' %}" class="nav-link {% if request.resolver_match.url_name == 'homework_manage' %}active{% endif %}">
+            <span class="nav-icon">✏️</span>
+            <span class="nav-label">Домашние задания</span>
+          </a>
+          <a href="{% url 'school:schedule' %}" class="nav-link {% if request.resolver_match.url_name == 'schedule' %}active{% endif %}">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Расписание</span>
+          </a>
+
+          <div class="nav-group-title">Библиотека</div>
+          <a href="{% url 'library:catalog' %}" class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+            <span class="nav-icon">📖</span>
+            <span class="nav-label">Каталог книг</span>
+          </a>
+          <a href="{% url 'library:my_books' %}" class="nav-link {% if request.resolver_match.url_name == 'my_books' %}active{% endif %}">
+            <span class="nav-icon">🔖</span>
+            <span class="nav-label">Мои формуляры</span>
+          </a>
+
+          <div class="nav-group-title">Коммуникация</div>
+          <a href="{% url 'school:announcements' %}" class="nav-link {% if request.resolver_match.url_name == 'announcements' %}active{% endif %}">
+            <span class="nav-icon">📢</span>
+            <span class="nav-label">Объявления</span>
+          </a>
+          <a href="{% url 'school:messages' %}" class="nav-link {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Сообщения</span>
+            {% if unread_messages_count > 0 %}
+              <span class="nav-counter">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+
+        {% elif request.user.is_librarian %}
+          <!-- БИБЛИОТЕКАРЬ -->
+          <div class="nav-group-title">Управление фондом</div>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=borrows" class="nav-link {% if 'tab=borrows' in request.get_full_path or request.resolver_match.url_name == 'librarian_cabinet' and 'tab=' not in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">📚</span>
+            <span class="nav-label">Выдача и возврат</span>
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=reservations" class="nav-link {% if 'tab=reservations' in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">⏳</span>
+            <span class="nav-label">Бронирования</span>
+            {% if pending_reservations_count > 0 %}
+              <span class="nav-counter">{{ pending_reservations_count }}</span>
+            {% endif %}
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=debtors" class="nav-link {% if 'tab=debtors' in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">⚠️</span>
+            <span class="nav-label">Должники</span>
+            {% if librarian_overdue_count > 0 %}
+              <span class="nav-counter counter-danger">{{ librarian_overdue_count }}</span>
+            {% endif %}
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=catalog" class="nav-link {% if 'tab=catalog' in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">📑</span>
+            <span class="nav-label">Управление книгами</span>
+          </a>
+          <a href="{% url 'library:catalog' %}" class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label">Поиск в каталоге</span>
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=reports" class="nav-link {% if 'tab=reports' in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Отчёты фонда</span>
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}?tab=rules" class="nav-link {% if 'tab=rules' in request.get_full_path %}active{% endif %}">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Правила библиотеки</span>
+          </a>
+
+          <div class="nav-group-title">Связь</div>
+          <a href="{% url 'school:messages' %}" class="nav-link {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Сообщения</span>
+            {% if unread_messages_count > 0 %}
+              <span class="nav-counter">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+
+        {% elif request.user.is_director %}
+          <!-- ДИРЕКТОР -->
+          <div class="nav-group-title">Управление школой</div>
+          <a href="{% url 'school:director_cabinet' %}" class="nav-link {% if request.resolver_match.url_name == 'director_cabinet' %}active{% endif %}">
+            <span class="nav-icon">🏛️</span>
+            <span class="nav-label">Кабинет директора</span>
+          </a>
+          <a href="{% url 'school:class_journal' %}" class="nav-link {% if request.resolver_match.url_name == 'class_journal' %}active{% endif %}">
+            <span class="nav-icon">📝</span>
+            <span class="nav-label">Журналы классов</span>
+          </a>
+          <a href="{% url 'school:quarter_grades' %}" class="nav-link {% if request.resolver_match.url_name == 'quarter_grades' %}active{% endif %}">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Успеваемость</span>
+          </a>
+          <a href="{% url 'school:import_users' %}" class="nav-link {% if request.resolver_match.url_name == 'import_users' %}active{% endif %}">
+            <span class="nav-icon">📥</span>
+            <span class="nav-label">Импорт пользователей</span>
+          </a>
+
+          <div class="nav-group-title">Библиотека</div>
+          <a href="{% url 'library:catalog' %}" class="nav-link {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+            <span class="nav-icon">📖</span>
+            <span class="nav-label">Каталог книг</span>
+          </a>
+          <a href="{% url 'library:librarian_cabinet' %}" class="nav-link {% if request.resolver_match.url_name == 'librarian_cabinet' %}active{% endif %}">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Отчёты фонда</span>
+          </a>
+
+          <div class="nav-group-title">Общение</div>
+          <a href="{% url 'school:announcements' %}" class="nav-link {% if request.resolver_match.url_name == 'announcements' %}active{% endif %}">
+            <span class="nav-icon">📢</span>
+            <span class="nav-label">Школьные объявления</span>
+          </a>
+          <a href="{% url 'school:messages' %}" class="nav-link {% if request.resolver_match.url_name == 'messages' %}active{% endif %}">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Сообщения</span>
+            {% if unread_messages_count > 0 %}
+              <span class="nav-counter">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+        {% endif %}
+
+        <div class="nav-group-title">Система</div>
+        <a href="{% url 'accounts:settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Настройки</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer with ALWAYS VISIBLE Logout button -->
+      <div class="sidebar-footer">
+        <a href="{% url 'logout' %}" class="logout-btn-nav" title="Выйти из системы">
+          <span class="nav-icon">🚪</span>
+          <span class="logout-text">Выйти</span>
+        </a>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    {% endif %}
+
+    <!-- ==========================================
+         MAIN WRAPPER & TOPBAR
+         ========================================== -->
+    <div class="main-wrapper" style="{% if not request.user.is_authenticated %}margin-left: 0;{% endif %}">
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          {% if request.user.is_authenticated %}
+            <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Открыть меню">☰</button>
+          {% else %}
+            <a href="{% url 'home' %}" class="brand-link">
+              <div class="brand-icon">🎓</div>
+              <div class="brand-text">
+                <div>Школа №1</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">Портал & Библиотека</div>
+              </div>
+            </a>
+          {% endif %}
+          <div class="topbar-titles">
+            <h1 class="page-title">{% block page_title %}Школьный портал{% endblock %}</h1>
+            <div class="page-subtitle">{% block page_subtitle %}{% endblock %}</div>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          {% if request.user.is_authenticated %}
+            <!-- Overdue alert pill if any -->
+            {% if user_overdue_books_count > 0 %}
+              <a href="{% url 'library:my_books' %}" class="badge badge-overdue topbar-pill" title="Срочно верните книгу в библиотеку!">
+                ⚠️ <span class="hide-mobile">Просрочено:</span> {{ user_overdue_books_count }}
+              </a>
+            {% endif %}
+
+            <!-- Messages counter -->
+            <a href="{% url 'school:messages' %}" class="topbar-chip" title="Личные сообщения">
+              💬 <span style="font-weight: 600;">{{ unread_messages_count }}</span>
+            </a>
+
+            <!-- Public pages links -->
+            <a href="{% url 'home' %}" class="topbar-chip topbar-chip-site" title="Перейти на сайт школы">
+              🌐 <span class="hide-mobile">Сайт</span>
+            </a>
+
+            <!-- Profile & Settings -->
+            <a href="{% url 'accounts:settings' %}" class="topbar-chip topbar-chip-user" title="Профиль: {{ request.user.display_name }}">
+              👤 <span class="hide-mobile">{{ request.user.display_name|truncatechars:14 }}</span>
+            </a>
+
+            <!-- ALWAYS VISIBLE Logout Button on Topbar -->
+            <a href="{% url 'logout' %}" class="topbar-logout-link" title="Выйти из учётной записи">
+              <span>🚪</span> <span class="hide-mobile">Выйти</span>
+            </a>
+          {% else %}
+            <!-- Desktop public navigation -->
+            <div class="public-nav-desktop">
+              <a href="{% url 'home' %}" class="btn btn-outline btn-sm {% if request.resolver_match.url_name == 'home' %}active{% endif %}">Главная</a>
+              <a href="{% url 'news_list' %}" class="btn btn-outline btn-sm {% if request.resolver_match.url_name == 'news_list' %}active{% endif %}">Новости</a>
+              <a href="{% url 'bells' %}" class="btn btn-outline btn-sm {% if request.resolver_match.url_name == 'bells' %}active{% endif %}">Звонки</a>
+              <a href="{% url 'contacts' %}" class="btn btn-outline btn-sm {% if request.resolver_match.url_name == 'contacts' %}active{% endif %}">Контакты</a>
+              <a href="{% url 'library:catalog' %}" class="btn btn-outline btn-sm {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">Каталог книг</a>
+              <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Войти в портал</a>
+            </div>
+
+            <!-- Mobile public navigation trigger -->
+            <div class="public-nav-mobile">
+              <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Войти</a>
+              <button type="button" class="mobile-menu-btn" id="publicMenuBtn" aria-label="Меню сайта">☰</button>
+            </div>
+          {% endif %}
+        </div>
+      </header>
+
+      {% if not request.user.is_authenticated %}
+        <!-- Off-canvas public navigation drawer for mobile / tablet -->
+        <div class="public-drawer-backdrop" id="publicDrawerBackdrop"></div>
+        <aside class="public-mobile-drawer" id="publicMobileDrawer">
+          <div class="public-drawer-header">
+            <div class="brand-link">
+              <div class="brand-icon">🎓</div>
+              <div class="brand-text">
+                <div>Школа №1</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">Портал & Библиотека</div>
+              </div>
+            </div>
+            <button type="button" class="sidebar-close-btn" id="publicDrawerCloseBtn" aria-label="Закрыть меню">✕</button>
+          </div>
+          <nav class="public-drawer-nav">
+            <a href="{% url 'home' %}" class="public-nav-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+              <span class="nav-icon">🏠</span>
+              <span>Главная страница</span>
+            </a>
+            <a href="{% url 'news_list' %}" class="public-nav-item {% if request.resolver_match.url_name == 'news_list' %}active{% endif %}">
+              <span class="nav-icon">📰</span>
+              <span>Новости школы</span>
+            </a>
+            <a href="{% url 'bells' %}" class="public-nav-item {% if request.resolver_match.url_name == 'bells' %}active{% endif %}">
+              <span class="nav-icon">🔔</span>
+              <span>Расписание звонков</span>
+            </a>
+            <a href="{% url 'contacts' %}" class="public-nav-item {% if request.resolver_match.url_name == 'contacts' %}active{% endif %}">
+              <span class="nav-icon">📍</span>
+              <span>Контакты и приёмная</span>
+            </a>
+            <a href="{% url 'library:catalog' %}" class="public-nav-item {% if request.resolver_match.url_name == 'catalog' %}active{% endif %}">
+              <span class="nav-icon">📖</span>
+              <span>Каталог библиотеки</span>
+            </a>
+          </nav>
+          <div class="public-drawer-footer">
+            <a href="{% url 'login' %}" class="btn btn-primary" style="width: 100%; text-align: center; justify-content: center; padding: 12px;">
+              🔑 Войти в систему
+            </a>
+          </div>
+        </aside>
+      {% endif %}
+
+      <!-- Main Body -->
+      <main class="content-body">
+        <!-- Messages & Notifications -->
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert-box alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% elif message.tags == 'success' %}success{% else %}info{% endif %}">
+              <div>
+                {% if message.tags == 'error' %}⛔{% elif message.tags == 'warning' %}⚠️{% elif message.tags == 'success' %}✅{% else %}ℹ️{% endif %}
+              </div>
+              <div>{{ message }}</div>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <script src="{% static 'js/app.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
+

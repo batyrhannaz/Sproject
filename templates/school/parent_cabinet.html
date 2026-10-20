@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Кабинет родителя | Школьный портал{% endblock %}
+{% block page_title %}Кабинет родителя{% endblock %}
+{% block page_subtitle %}Электронный дневник и библиотека вашего ребёнка{% endblock %}
+
+{% block content %}
+<!-- Children Switcher Tabs (if parent has children) -->
+{% if children_relations %}
+  <div style="background: white; padding: 12px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-weight: 700; color: var(--text-muted); font-size: 0.9rem;">Дети:</span>
+      <div style="display: flex; gap: 8px;">
+        {% for rel in children_relations %}
+          <a href="?child_id={{ rel.student.id }}" class="btn {% if selected_child.id == rel.student.id %}btn-primary{% else %}btn-outline{% endif %} btn-sm">
+            🎒 {{ rel.student.display_name }} ({{ rel.student.student_profile.school_class.name|default:"Без класса" }})
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Quick Message to Class Teacher -->
+    <a href="{% url 'school:messages' %}" class="btn btn-outline btn-sm">
+      💬 Написать учителю
+    </a>
+  </div>
+
+  <!-- Overdue Alert if Child has overdue books -->
+  {% for borrow in child_borrows %}
+    {% if borrow.is_overdue %}
+      <div class="alert-box alert-danger" style="border-left: 6px solid #dc2626;">
+        <div style="font-size: 1.5rem;">⚠️</div>
+        <div style="flex: 1;">
+          <div style="font-weight: 700; font-size: 1rem;">
+            Внимание! У вашего ребёнка ({{ selected_child.display_name }}) просрочена книга: «{{ borrow.copy.book.title }}»
+          </div>
+          <div style="font-size: 0.88rem; margin-top: 2px;">
+            Срок возврата истёк {{ borrow.due_date|date:"d.m.Y" }} (просрочено на <strong>{{ borrow.days_overdue }} дн.</strong>). Пожалуйста, проконтролируйте возврат литературы в библиотеку!
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <!-- Child Overview KPIs -->
+  <div class="grid-4" style="margin-bottom: 24px;">
+    <div class="stat-widget">
+      <div class="stat-icon stat-blue">🎒</div>
+      <div>
+        <div class="stat-value">{{ child_class.name|default:"—" }}</div>
+        <div class="stat-label">Класс учащегося</div>
+      </div>
+    </div>
+
+    <div class="stat-widget">
+      <div class="stat-icon stat-green">⭐</div>
+      <div>
+        <div class="stat-value">{{ subject_averages.0.avg_grade|floatformat:1|default:"5.0" }}</div>
+        <div class="stat-label">Текущий средний балл</div>
+      </div>
+    </div>
+
+    <div class="stat-widget">
+      <div class="stat-icon stat-amber">🩺</div>
+      <div>
+        <div class="stat-value">{{ sick_count|add:valid_count }}</div>
+        <div class="stat-label">Пропусков по уваж. причине</div>
+      </div>
+    </div>
+
+    <div class="stat-widget">
+      <div class="stat-icon {% if absent_count > 0 %}stat-red{% else %}stat-green{% endif %}">❌</div>
+      <div>
+        <div class="stat-value">{{ absent_count }}</div>
+        <div class="stat-label">Пропусков без причины (Н)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- 1. Report Card (Табель успеваемости) -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📊 Табель четвертных оценок</h2>
+        <span class="badge badge-secondary">2026-2027 уч. год</span>
+      </div>
+
+      {% if quarter_grades %}
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Предмет</th>
+                <th>Период</th>
+                <th>Итоговая оценка</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for qg in quarter_grades %}
+                <tr>
+                  <td style="font-weight: 600;">{{ qg.subject.name }}</td>
+                  <td>{{ qg.get_quarter_display }}</td>
+                  <td>
+                    <span class="grade-bubble grade-{{ qg.grade_value }}">{{ qg.grade_value }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Итоговые четвертные оценки пока не выставлены
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 2. Recent Grades Feed -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">⭐ Текущие оценки в дневнике</h2>
+        <span style="font-size: 0.82rem; color: var(--text-muted);">Последние записи</span>
+      </div>
+
+      {% if recent_grades %}
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Предмет</th>
+                <th>Оценка</th>
+                <th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for g in recent_grades %}
+                <tr>
+                  <td style="font-size: 0.85rem; color: var(--text-muted);">{{ g.date|date:"d.m.Y" }}</td>
+                  <td style="font-weight: 600;">{{ g.subject.name }}</td>
+                  <td>
+                    <span class="grade-bubble grade-{{ g.grade_value }}">{{ g.grade_value }}</span>
+                  </td>
+                  <td style="font-size: 0.82rem; color: var(--text-muted);">{{ g.comment|default:"Урок" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Оценок нет
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- 3. Homework of child -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">✏️ Домашние задания ребёнка</h2>
+        <span class="badge badge-primary">{{ homeworks|length }} заданий</span>
+      </div>
+
+      {% if homeworks %}
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          {% for hw in homeworks %}
+            <div style="padding: 12px; background: var(--bg-card-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 700; color: var(--primary);">{{ hw.subject.name }}</span>
+                <span class="badge badge-warning" style="font-size: 0.72rem;">Срок: {{ hw.due_date|date:"d.m.Y" }}</span>
+              </div>
+              <div style="font-weight: 600; font-size: 0.9rem;">{{ hw.title }}</div>
+              <div style="font-size: 0.84rem; color: var(--text-muted); margin-top: 4px;">{{ hw.description }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Нет заданий на ближайшие дни
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 4. Library Books of child -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📖 Книги ребёнка в библиотеке</h2>
+        <a href="{% url 'library:catalog' %}" class="btn btn-outline btn-sm">Каталог книг →</a>
+      </div>
+
+      {% if child_borrows %}
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Книга</th>
+                <th>Срок сдачи</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in child_borrows %}
+                <tr style="{% if b.is_overdue %}background: #fef2f2;{% endif %}">
+                  <td>
+                    <div style="font-weight: 600;">{{ b.copy.book.title }}</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">{{ b.copy.book.author }} (№ {{ b.copy.inventory_number }})</div>
+                  </td>
+                  <td>
+                    <span style="font-weight: 600; {% if b.is_overdue %}color: #dc2626;{% endif %}">
+                      {{ b.due_date|date:"d.m.Y" }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if b.is_overdue %}
+                      <span class="badge badge-overdue">Просрочено ({{ b.days_overdue }} дн.)</span>
+                    {% else %}
+                      <span class="badge badge-success">На руках</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          Ребёнок в данный момент не держит на руках книги из библиотеки
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 40px;">
+    <div style="font-size: 3rem; margin-bottom: 12px;">👨‍👩‍👧</div>
+    <h3 style="font-weight: 700; margin-bottom: 8px;">Дети не привязаны</h3>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">
+      К вашей учётной записи родителя пока не привязаны ученики. Пожалуйста, обратитесь к классному руководителю или администратору школы.
+    </p>
+  </div>
+{% endif %}
+{% endblock %}
+

@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Кабинет учителя | Школьный портал{% endblock %}
+{% block page_title %}Кабинет преподавателя{% endblock %}
+{% block page_subtitle %}{{ request.user.display_name }} | {{ teacher_profile.qualification|default:"Преподаватель" }} (Каб. {{ teacher_profile.cabinet_number|default:"—" }}){% endblock %}
+
+{% block content %}
+<!-- Quick Actions Banner -->
+<div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 18px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: var(--shadow-sm);">
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{% url 'school:class_journal' %}" class="btn btn-primary">
+      📝 Открыть журнал класса
+    </a>
+    <a href="{% url 'school:quarter_grades' %}" class="btn btn-outline">
+      📈 Четвертные оценки
+    </a>
+    <a href="{% url 'school:homework_manage' %}" class="btn btn-outline">
+      ✏️ Задать домашнее задание
+    </a>
+    <a href="{% url 'library:catalog' %}" class="btn btn-outline">
+      📖 Рекомендовать книгу
+    </a>
+  </div>
+
+  <div>
+    {% if supervised_classes %}
+      <span class="badge badge-teacher" style="font-size: 0.85rem; padding: 6px 12px;">
+        Руководитель: {% for sc in supervised_classes %}{{ sc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Teacher Stats Row -->
+<div class="grid-4" style="margin-bottom: 24px;">
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">📋</div>
+    <div>
+      <div class="stat-value">{{ assignments|length }}</div>
+      <div class="stat-label">Назначений (класс-предмет)</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-green">🕒</div>
+    <div>
+      <div class="stat-value">{{ today_lessons|length }}</div>
+      <div class="stat-label">Уроков сегодня</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-amber">📝</div>
+    <div>
+      <div class="stat-value">{{ active_homeworks|length }}</div>
+      <div class="stat-label">Активных заданий ДЗ</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">⭐</div>
+    <div>
+      <div class="stat-value">{{ recent_grades|length }}</div>
+      <div class="stat-label">Оценок за последнее время</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- 1. Today's Lessons -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📅 Расписание уроков на сегодня</h2>
+      <a href="{% url 'school:schedule' %}" class="btn btn-outline btn-sm">Всё расписание →</a>
+    </div>
+
+    {% if today_lessons %}
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Урок</th>
+              <th>Класс</th>
+              <th>Предмет</th>
+              <th>Кабинет</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lesson in today_lessons %}
+              <tr>
+                <td><strong>№ {{ lesson.lesson_number }}</strong></td>
+                <td><span class="badge badge-primary">{{ lesson.school_class.name }}</span></td>
+                <td style="font-weight: 600;">{{ lesson.subject.name }}</td>
+                <td>{{ lesson.room|default:"—" }}</td>
+                <td>
+                  <a href="{% url 'school:class_journal' %}?class_id={{ lesson.school_class.id }}&subject_id={{ lesson.subject.id }}" class="btn btn-primary btn-sm">
+                    Журнал →
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 28px; color: var(--text-muted);">
+        Сегодня у вас нет запланированных уроков.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 2. Teaching Assignments -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📚 Мои классы и предметы</h2>
+    </div>
+
+    {% if assignments %}
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for a in assignments %}
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--bg-card-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div>
+              <span class="badge badge-primary" style="font-size: 0.85rem; margin-right: 8px;">{{ a.school_class.name }}</span>
+              <strong style="color: var(--text-main);">{{ a.subject.name }}</strong>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <a href="{% url 'school:class_journal' %}?class_id={{ a.school_class.id }}&subject_id={{ a.subject.id }}" class="btn btn-outline btn-sm">
+                Журнал
+              </a>
+              <a href="{% url 'school:quarter_grades' %}?class_id={{ a.school_class.id }}&subject_id={{ a.subject.id }}" class="btn btn-outline btn-sm">
+                Четвертные
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 28px; color: var(--text-muted);">
+        Назначений пока нет
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 3. Recent Homeworks List -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">✏️ Опубликованные домашние задания</h2>
+    <a href="{% url 'school:homework_manage' %}" class="btn btn-primary btn-sm">+ Создать новое ДЗ</a>
+  </div>
+
+  {% if active_homeworks %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Класс</th>
+            <th>Предмет</th>
+            <th>Тема задания</th>
+            <th>Срок сдачи</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for hw in active_homeworks %}
+            <tr>
+              <td><span class="badge badge-primary">{{ hw.school_class.name }}</span></td>
+              <td style="font-weight: 600;">{{ hw.subject.name }}</td>
+              <td>{{ hw.title }}</td>
+              <td><span class="badge badge-warning">{{ hw.due_date|date:"d.m.Y" }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+      Нет активных домашних заданий
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

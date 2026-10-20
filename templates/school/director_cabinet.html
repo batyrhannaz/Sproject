@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Кабинет директора | Школьный портал{% endblock %}
+{% block page_title %}Кабинет директора школы{% endblock %}
+{% block page_subtitle %}Администрирование учебного заведения, статистика и управление пользователями{% endblock %}
+
+{% block content %}
+<!-- Top Actions Banner -->
+<div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 18px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: var(--shadow-sm);">
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button type="button" class="btn btn-primary" data-open-modal="addUserModal">
+      ➕ Добавить пользователя
+    </button>
+    <a href="{% url 'school:import_users' %}" class="btn btn-outline">
+      📥 Импорт из Excel / CSV
+    </a>
+    <a href="{% url 'school:class_journal' %}" class="btn btn-outline">
+      📝 Журналы классов
+    </a>
+    <a href="{% url 'library:librarian_cabinet' %}?tab=reports" class="btn btn-outline">
+      📚 Отчёты библиотеки
+    </a>
+    <a href="{% url 'school:announcements' %}" class="btn btn-outline">
+      📢 Объявления школы
+    </a>
+  </div>
+
+  <div style="font-size: 0.88rem; color: var(--text-muted);">
+    Статус системы: <span class="badge badge-success">Школа функционирует в штатном режиме</span>
+  </div>
+</div>
+
+<!-- School KPIs Grid -->
+<div class="grid-4" style="margin-bottom: 24px;">
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">🎒</div>
+    <div>
+      <div class="stat-value">{{ total_students }}</div>
+      <div class="stat-label">Учащихся в школе</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-green">👩‍🏫</div>
+    <div>
+      <div class="stat-value">{{ total_teachers }}</div>
+      <div class="stat-label">Педагогический состав</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-amber">🏫</div>
+    <div>
+      <div class="stat-value">{{ total_classes }}</div>
+      <div class="stat-label">Классов (комплектов)</div>
+    </div>
+  </div>
+
+  <div class="stat-widget">
+    <div class="stat-icon stat-blue">⭐</div>
+    <div>
+      <div class="stat-value">{{ avg_performance }}</div>
+      <div class="stat-label">Средний балл школы</div>
+    </div>
+  </div>
+</div>
+
+<!-- Library Overview for Director -->
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(180deg, #ffffff, var(--bg-card-subtle));">
+  <div class="card-header">
+    <h2 class="card-title">📖 Сводка библиотечного фонда</h2>
+    <a href="{% url 'library:export_excel' %}" class="btn btn-outline btn-sm">📊 Выгрузить фонд в Excel</a>
+  </div>
+  <div class="grid-3">
+    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: white;">
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">Книг в каталоге</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-main);">{{ total_books }}</div>
+    </div>
+    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: white;">
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">Книг сейчас на руках</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">{{ active_borrows_count }}</div>
+    </div>
+    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: white;">
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">Просроченных задолженностей</div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: {% if overdue_count > 0 %}var(--danger){% else %}var(--success){% endif %};">
+        {{ overdue_count }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- User Management Table with Filter & Search -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">👥 Пользователи школьной системы</h2>
+    <div style="font-size: 0.85rem; color: var(--text-muted);">
+      Всего: {{ users_list|length }} пользователей (показаны первые 40)
+    </div>
+  </div>
+
+  <!-- Search & Filter Form -->
+  <form method="get" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+    <div style="flex: 2; min-width: 200px;">
+      <input type="text" name="q" class="form-control" placeholder="Поиск по ФИО или логину..." value="{{ query }}">
+    </div>
+    <div style="flex: 1; min-width: 150px;">
+      <select name="role_filter" class="form-select" onchange="this.form.submit()">
+        <option value="">Все роли</option>
+        {% for r_code, r_name in roles %}
+          <option value="{{ r_code }}" {% if role_filter == r_code %}selected{% endif %}>{{ r_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary">Найти</button>
+      {% if query or role_filter %}
+        <a href="{% url 'school:director_cabinet' %}" class="btn btn-outline">Сбросить</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Пользователь</th>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Класс / Должность</th>
+          <th>Email / Gmail</th>
+          <th>Телефон</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users_list %}
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                {% if u.avatar %}
+                  <img src="{{ u.avatar.url }}" style="width: 34px; height: 34px; border-radius: var(--radius-full); object-fit: cover;">
+                {% else %}
+                  <div style="width: 34px; height: 34px; border-radius: var(--radius-full); background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                    {{ u.first_name|default:u.username|slice:":1"|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div style="font-weight: 600;">{{ u.display_name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">Зарегистрирован: {{ u.date_joined|date:"d.m.Y" }}</div>
+                </div>
+              </div>
+            </td>
+            <td><code>{{ u.username }}</code></td>
+            <td><span class="badge {{ u.role_badge_class }}">{{ u.role_title }}</span></td>
+            <td>
+              {% if u.is_student %}
+                <span class="badge badge-primary">{{ u.student_profile.school_class.name|default:"Без класса" }}</span>
+              {% elif u.is_teacher %}
+                {{ u.teacher_profile.qualification|default:"Учитель-предметник" }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td style="font-size: 0.85rem;">{{ u.linked_gmail|default:u.email|default:"—" }}</td>
+            <td style="font-size: 0.85rem;">{{ u.phone|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Add New User -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">➕ Создание новой учётной записи</h3>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>×</button>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_user">
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Логин:</label>
+            <input type="text" name="username" class="form-control" required placeholder="Например: jumabekov_a">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Пароль:</label>
+            <input type="text" name="password" class="form-control" value="password123">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Имя:</label>
+            <input type="text" name="first_name" class="form-control" required placeholder="Имя">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Фамилия:</label>
+            <input type="text" name="last_name" class="form-control" required placeholder="Фамилия">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Роль:</label>
+            <select name="role" class="form-select" id="new_user_role" required>
+              {% for r_code, r_name in roles %}
+                <option value="{{ r_code }}">{{ r_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" id="class_select_group">
+            <label class="form-label">Класс (для ученика):</label>
+            <select name="school_class" class="form-select">
+              <option value="">Не привязан</option>
+              {% for c in classes %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email / Gmail:</label>
+          <input type="email" name="email" class="form-control" placeholder="user@gmail.com">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" data-close-modal>Отмена</button>
+        <button type="submit" class="btn btn-primary">Создать пользователя</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

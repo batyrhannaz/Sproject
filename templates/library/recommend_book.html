@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Рекомендация книги | Школьная библиотека{% endblock %}
+{% block page_title %}Рекомендовать книгу ученикам{% endblock %}
+{% block page_subtitle %}«{{ book.title }}» — {{ book.author }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">⭐ Рекомендация преподавателя</h2>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">Для какого класса:</label>
+        <select name="target_class" class="form-select">
+          <option value="">Для всех классов</option>
+          {% for c in classes %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Комментарий к рекомендации:</label>
+        <textarea name="note" class="form-control" rows="4" placeholder="Например: Рекомендуется для внеклассного чтения по теме восстания Пугачёва..."></textarea>
+      </div>
+
+      <div style="margin-top: 24px; display: flex; gap: 12px;">
+        <button type="submit" class="btn btn-primary">
+          Опубликовать рекомендацию
+        </button>
+        <a href="{% url 'library:book_detail' book.id %}" class="btn btn-outline">
+          Отмена
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

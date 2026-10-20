@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Расписание уроков и звонков | Школьный портал{% endblock %}
+{% block page_title %}Расписание уроков и звонков{% endblock %}
+{% block page_subtitle %}Учебная сетка занятий и график перемен{% endblock %}
+
+{% block content %}
+<div class="card" style="padding: 16px 20px; margin-bottom: 24px;">
+  <form method="get" style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 180px;">
+      <label class="form-label" style="font-size: 0.82rem;">Выберите класс:</label>
+      <select name="class_id" class="form-select" onchange="this.form.submit()">
+        {% for c in classes %}
+          <option value="{{ c.id }}" {% if selected_class.id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.get_shift_display }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--text-muted); padding-bottom: 8px;">
+      Классный руководитель: <strong>{{ selected_class.class_teacher.display_name|default:"Не назначен" }}</strong>
+    </div>
+  </form>
+</div>
+
+<div class="grid-2">
+  <!-- 1. Timetable by Days -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📅 Расписание занятий для {{ selected_class.name }}</h2>
+    </div>
+
+    {% if timetable_by_day %}
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% for day_name, lessons in timetable_by_day.items %}
+          <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
+            <div style="background: var(--bg-card-subtle); padding: 8px 14px; font-weight: 700; font-size: 0.92rem; color: var(--primary); border-bottom: 1px solid var(--border-color);">
+              {{ day_name }}
+            </div>
+            <table class="custom-table" style="font-size: 0.85rem;">
+              <tbody>
+                {% for l in lessons %}
+                  <tr>
+                    <td style="width: 32px; font-weight: 700; text-align: center; color: var(--text-muted);">
+                      {{ l.lesson_number }}
+                    </td>
+                    <td style="font-weight: 600;">{{ l.subject.name }}</td>
+                    <td style="color: var(--text-muted);">{{ l.teacher.display_name }}</td>
+                    <td style="text-align: right;"><span class="badge badge-secondary">{{ l.room|default:"—" }}</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+        Для данного класса расписание ещё не сформировано
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 2. Bell Schedule -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🔔 Расписание звонков</h2>
+    </div>
+
+    <div style="margin-bottom: 18px;">
+      <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--text-main);">
+        1-я смена (Утро)
+      </h3>
+      <table class="custom-table" style="font-size: 0.88rem;">
+        <thead>
+          <tr>
+            <th>Урок</th>
+            <th>Время урока</th>
+            <th>Перемена</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in shift1_bells %}
+            <tr>
+              <td><strong>№ {{ b.lesson_number }}</strong></td>
+              <td>{{ b.start_time|time:"H:i" }} — {{ b.end_time|time:"H:i" }}</td>
+              <td><span class="badge badge-secondary">{{ b.break_duration|default:"10 мин" }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if shift2_bells %}
+      <div>
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--text-main);">
+          2-я смена (После обеда)
+        </h3>
+        <table class="custom-table" style="font-size: 0.88rem;">
+          <thead>
+            <tr>
+              <th>Урок</th>
+              <th>Время урока</th>
+              <th>Перемена</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in shift2_bells %}
+              <tr>
+                <td><strong>№ {{ b.lesson_number }}</strong></td>
+                <td>{{ b.start_time|time:"H:i" }} — {{ b.end_time|time:"H:i" }}</td>
+                <td><span class="badge badge-secondary">{{ b.break_duration|default:"10 мин" }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

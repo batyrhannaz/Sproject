@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Вход в школьный портал{% endblock %}
+{% block page_title %}Авторизация{% endblock %}
+{% block page_subtitle %}Единый вход в электронный дневник и библиотеку{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 20px auto 40px;">
+  <!-- Role selection on login screen -->
+  <div style="text-align: center; margin-bottom: 24px;">
+    <h2 style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px;">Добро пожаловать</h2>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">Выберите вашу роль и введите учетные данные</p>
+  </div>
+
+  <div class="card" style="border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);">
+    <!-- Role selection badges -->
+    <div style="margin-bottom: 22px;">
+      <label class="form-label" style="text-align: center; margin-bottom: 12px;">Выберите категорию входа:</label>
+      <div class="role-selector-wrap" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+        <button type="button" class="btn btn-outline btn-sm role-choice-btn {% if selected_role == 'student' %}btn-primary{% endif %}" data-role="student" style="flex: 1 1 calc(33.333% - 8px); min-width: 100px;">
+          🎒 Ученик
+        </button>
+        <button type="button" class="btn btn-outline btn-sm role-choice-btn {% if selected_role == 'parent' %}btn-primary{% endif %}" data-role="parent" style="flex: 1 1 calc(33.333% - 8px); min-width: 100px;">
+          👨‍👩‍👦 Родитель
+        </button>
+        <button type="button" class="btn btn-outline btn-sm role-choice-btn {% if selected_role == 'teacher' %}btn-primary{% endif %}" data-role="teacher" style="flex: 1 1 calc(33.333% - 8px); min-width: 100px;">
+          👩‍🏫 Учитель
+        </button>
+        <button type="button" class="btn btn-outline btn-sm role-choice-btn {% if selected_role == 'librarian' %}btn-primary{% endif %}" data-role="librarian" style="flex: 1 1 calc(45% - 8px); min-width: 120px;">
+          📚 Библиотекарь
+        </button>
+        <button type="button" class="btn btn-outline btn-sm role-choice-btn {% if selected_role == 'director' %}btn-primary{% endif %}" data-role="director" style="flex: 1 1 calc(45% - 8px); min-width: 120px;">
+          🏛️ Директор
+        </button>
+      </div>
+    </div>
+
+    <!-- Login Form -->
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <input type="hidden" name="role" id="id_role_input" value="{{ selected_role }}">
+
+      <div class="form-group">
+        <label for="id_username" class="form-label">Логин:</label>
+        {{ form.username }}
+        {% if form.username.errors %}
+          <div style="color: var(--danger); font-size: 0.8rem; margin-top: 4px;">{{ form.username.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label for="id_password" class="form-label" style="margin-bottom: 0;">Пароль:</label>
+          <a href="{% url 'accounts:password_reset' %}" style="font-size: 0.82rem; color: var(--primary);">Забыли пароль?</a>
+        </div>
+        {{ form.password }}
+        {% if form.password.errors %}
+          <div style="color: var(--danger); font-size: 0.8rem; margin-top: 4px;">{{ form.password.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div style="margin-top: 24px;">
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1rem;">
+          Войти в систему →
+        </button>
+      </div>
+    </form>
+
+    <!-- Quick Demo Accounts -->
+    <div style="margin-top: 26px; padding-top: 20px; border-top: 1px dashed var(--border-color); text-align: center;">
+      <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">
+        ⚡ Быстрый вход (демо-аккаунты):
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+        <a href="{% url 'login' %}?demo=student" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+          Ученик (student)
+        </a>
+        <a href="{% url 'login' %}?demo=parent" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+          Родитель (parent)
+        </a>
+        <a href="{% url 'login' %}?demo=teacher" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+          Учитель (teacher)
+        </a>
+        <a href="{% url 'login' %}?demo=librarian" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+          Библиотекарь (librarian)
+        </a>
+        <a href="{% url 'login' %}?demo=director" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+          Директор (director)
+        </a>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 8px;">
+        Пароль для всех демо-пользователей: <code>password123</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.role-choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.role-choice-btn').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-outline');
+      });
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+      const role = btn.getAttribute('data-role');
+      document.getElementById('id_role_input').value = role;
+
+      // Suggest login username for demo
+      const usernameInput = document.getElementById('id_username');
+      if (usernameInput && (!usernameInput.value || ['student', 'parent', 'teacher', 'librarian', 'director'].includes(usernameInput.value))) {
+        usernameInput.value = role;
+      }
+    });
+  });
+</script>
+{% endblock %}
+

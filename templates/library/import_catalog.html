@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Импорт каталога | Школьная библиотека{% endblock %}
+{% block page_title %}Массовый импорт каталога книг{% endblock %}
+{% block page_subtitle %}Загрузка списка литературы из файла Excel (.xlsx) или CSV{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📥 Загрузка файла каталога</h2>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">Выберите файл каталога (.xlsx или .csv):</label>
+        <input type="file" name="catalog_file" class="form-control" accept=".xlsx, .csv" required>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+          Максимальный размер: 20 МБ.
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; display: flex; gap: 12px;">
+        <button type="submit" class="btn btn-primary">
+          🚀 Импортировать книги в фонд
+        </button>
+        <a href="{% url 'library:librarian_cabinet' %}?tab=catalog" class="btn btn-outline">
+          Отмена
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">ℹ️ Поддерживаемые колонки</h2>
+    </div>
+
+    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+      Первая строка таблицы должна содержать имена полей:
+    </p>
+
+    <div class="table-responsive">
+      <table class="custom-table" style="font-size: 0.82rem;">
+        <thead>
+          <tr>
+            <th>Колонка</th>
+            <th>Обязательное</th>
+            <th>Пример</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>title</code> (название)</td>
+            <td><strong>Да</strong></td>
+            <td><code>Капитанская дочка</code></td>
+          </tr>
+          <tr>
+            <td><code>author</code> (автор)</td>
+            <td><strong>Да</strong></td>
+            <td><code>Александр Пушкин</code></td>
+          </tr>
+          <tr>
+            <td><code>genre</code> (жанр)</td>
+            <td>Нет</td>
+            <td><code>Классика</code></td>
+          </tr>
+          <tr>
+            <td><code>grade_level</code> (класс)</td>
+            <td>Нет</td>
+            <td><code>8</code></td>
+          </tr>
+          <tr>
+            <td><code>language</code> (язык)</td>
+            <td>Нет</td>
+            <td><code>ru</code> или <code>kg</code></td>
+          </tr>
+          <tr>
+            <td><code>publication_year</code> (год)</td>
+            <td>Нет</td>
+            <td><code>2022</code></td>
+          </tr>
+          <tr>
+            <td><code>isbn</code></td>
+            <td>Нет</td>
+            <td><code>978-5-389-07432-8</code></td>
+          </tr>
+          <tr>
+            <td><code>copies_count</code> (экземпляры)</td>
+            <td>Нет</td>
+            <td><code>5</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

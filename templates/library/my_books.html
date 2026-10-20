@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мой формуляр | Школьная библиотека{% endblock %}
+{% block page_title %}Мой библиотечный формуляр{% endblock %}
+{% block page_subtitle %}Выданные книги, сроки возврата и история чтения: {{ target_user.display_name }}{% endblock %}
+
+{% block content %}
+<!-- Parent child switcher if applicable -->
+{% if children %}
+  <div style="background: white; padding: 12px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <span style="font-weight: 700; color: var(--text-muted); font-size: 0.88rem;">Формуляр ребёнка:</span>
+    <div style="display: flex; gap: 8px;">
+      {% for rel in children %}
+        <a href="?child_id={{ rel.student.id }}" class="btn {% if target_user.id == rel.student.id %}btn-primary{% else %}btn-outline{% endif %} btn-sm">
+          🎒 {{ rel.student.display_name }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+<!-- 1. Active Loans Table -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">📖 Книги на руках в данный момент</h2>
+    <span class="badge badge-primary">{{ active_borrows|length }} шт.</span>
+  </div>
+
+  {% if active_borrows %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Книга</th>
+            <th>Инв. номер</th>
+            <th>Дата выдачи</th>
+            <th>Срок сдачи</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in active_borrows %}
+            <tr style="{% if b.is_overdue %}background: #fef2f2;{% endif %}">
+              <td>
+                <a href="{% url 'library:book_detail' b.copy.book.id %}" style="font-weight: 600;">
+                  {{ b.copy.book.title }}
+                </a>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">{{ b.copy.book.author }}</div>
+              </td>
+              <td><code>{{ b.copy.inventory_number }}</code></td>
+              <td>{{ b.borrow_date|date:"d.m.Y" }}</td>
+              <td>
+                <span style="font-weight: 700; {% if b.is_overdue %}color: #dc2626;{% endif %}">
+                  {{ b.due_date|date:"d.m.Y" }}
+                </span>
+              </td>
+              <td>
+                {% if b.is_overdue %}
+                  <span class="badge badge-overdue">Просрочено на {{ b.days_overdue }} дн.</span>
+                {% else %}
+                  <span class="badge badge-success">В пользовании</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+      <div style="font-size: 2.5rem; margin-bottom: 8px;">📚</div>
+      Сейчас на руках нет книг из библиотеки.
+      <div style="margin-top: 12px;">
+        <a href="{% url 'library:catalog' %}" class="btn btn-primary btn-sm">Выбрать книгу в каталоге</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- 2. Active Reservations -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">⏳ Забронированные издания</h2>
+    <span class="badge badge-secondary">{{ reservations|length }}</span>
+  </div>
+
+  {% if reservations %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Книга</th>
+            <th>Дата брони</th>
+            <th>Действительна до</th>
+            <th>Статус</th>
+            <th>Действие</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reservations %}
+            <tr>
+              <td>
+                <a href="{% url 'library:book_detail' r.book.id %}" style="font-weight: 600;">{{ r.book.title }}</a>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">{{ r.book.author }}</div>
+              </td>
+              <td>{{ r.created_at|date:"d.m.Y H:i" }}</td>
+              <td>{{ r.expires_at|date:"d.m.Y H:i" }}</td>
+              <td>
+                {% if r.status == 'pending' %}
+                  <span class="badge badge-warning">Ожидает получения</span>
+                {% elif r.status == 'fulfilled' %}
+                  <span class="badge badge-success">Выдана на руки</span>
+                {% elif r.status == 'cancelled' %}
+                  <span class="badge badge-secondary">Отменена</span>
+                {% else %}
+                  <span class="badge badge-danger">Истекла</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.is_active %}
+                  <a href="{% url 'library:cancel_reservation' r.id %}" class="btn btn-outline btn-sm" style="color: var(--danger);" onclick="return confirm('Отменить данную бронь?')">
+                    Отменить бронь
+                  </a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+      Активных бронирований нет
+    </div>
+  {% endif %}
+</div>
+
+<!-- 3. Borrowing History -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">📜 История прочитанных книг</h2>
+  </div>
+
+  {% if past_borrows %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Книга</th>
+            <th>Инв. номер</th>
+            <th>Дата выдачи</th>
+            <th>Дата возврата</th>
+            <th>Состояние книги</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in past_borrows %}
+            <tr>
+              <td>
+                <span style="font-weight: 600;">{{ b.copy.book.title }}</span>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">{{ b.copy.book.author }}</div>
+              </td>
+              <td><code>{{ b.copy.inventory_number }}</code></td>
+              <td>{{ b.borrow_date|date:"d.m.Y" }}</td>
+              <td><span style="color: var(--success); font-weight: 600;">{{ b.return_date|date:"d.m.Y" }}</span></td>
+              <td><span class="badge badge-secondary">{{ b.get_return_condition_display|default:b.get_initial_condition_display }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+      История возвратов пока пуста
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Импорт пользователей | Школьный портал{% endblock %}
+{% block page_title %}Массовый импорт пользователей{% endblock %}
+{% block page_subtitle %}Загрузка списка учеников и учителей из файла Excel (.xlsx) или CSV{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📥 Загрузка файла с пользователями</h2>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">Выберите файл (Excel .xlsx или .csv):</label>
+        <input type="file" name="data_file" class="form-control" accept=".xlsx, .csv" required>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+          Максимальный размер: 15 МБ. Кодировка CSV: UTF-8.
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; display: flex; gap: 12px;">
+        <button type="submit" class="btn btn-primary">
+          🚀 Запустить импорт данных
+        </button>
+        <a href="{% url 'school:director_cabinet' %}" class="btn btn-outline">
+          Отмена
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">ℹ️ Требуемый формат таблицы</h2>
+    </div>
+
+    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+      Первая строка таблицы должна содержать заголовки колонок. Поддерживаются русские и английские наименования:
+    </p>
+
+    <div class="table-responsive">
+      <table class="custom-table" style="font-size: 0.82rem;">
+        <thead>
+          <tr>
+            <th>Колонка</th>
+            <th>Обязательное</th>
+            <th>Пример значения</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>username</code> (логин)</td>
+            <td><strong>Да</strong></td>
+            <td><code>jumabaev_a</code></td>
+          </tr>
+          <tr>
+            <td><code>role</code> (роль)</td>
+            <td>Да</td>
+            <td><code>student</code> или <code>teacher</code></td>
+          </tr>
+          <tr>
+            <td><code>first_name</code> (имя)</td>
+            <td>Нет</td>
+            <td><code>Арсен</code></td>
+          </tr>
+          <tr>
+            <td><code>last_name</code> (фамилия)</td>
+            <td>Нет</td>
+            <td><code>Жумабаев</code></td>
+          </tr>
+          <tr>
+            <td><code>class_name</code> (класс)</td>
+            <td>Для учеников</td>
+            <td><code>9-А</code> или <code>10-Б</code></td>
+          </tr>
+          <tr>
+            <td><code>password</code> (пароль)</td>
+            <td>Нет (по умолч. password123)</td>
+            <td><code>pass1234</code></td>
+          </tr>
+          <tr>
+            <td><code>email</code> (почта)</td>
+            <td>Нет</td>
+            <td><code>student@gmail.com</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

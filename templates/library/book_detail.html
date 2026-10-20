@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ book.title }} | Школьная библиотека{% endblock %}
+{% block page_title %}{{ book.title }}{% endblock %}
+{% block page_subtitle %}Автор: {{ book.author }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+  <a href="{% url 'library:catalog' %}" class="btn btn-outline btn-sm">
+    ← Назад в каталог
+  </a>
+</div>
+
+<div class="grid-aside-1-2">
+  <!-- Book Cover & Quick Action Card -->
+  <div class="card" style="text-align: center;">
+    <div class="book-detail-cover" style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0); border-radius: var(--radius-md); overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: var(--shadow-sm);">
+      {% if book.cover_image %}
+        <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" style="width: 100%; height: 100%; object-fit: cover;">
+      {% else %}
+        <div style="font-size: 5rem; opacity: 0.35;">📖</div>
+      {% endif %}
+    </div>
+
+    <div style="margin-bottom: 18px;">
+      <span class="badge {{ book.status_badge_class }}" style="font-size: 0.95rem; padding: 6px 14px;">
+        {{ book.status_display }}
+      </span>
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
+        Свободно экземпляров: <strong>{{ book.available_copies_count }}</strong> из {{ book.total_copies_count }}
+      </div>
+    </div>
+
+    <!-- RESERVATION ACTION BLOCK -->
+    {% if already_reserved %}
+      <div class="alert-box alert-info" style="margin-bottom: 12px; text-align: left;">
+        <div>ℹ️</div>
+        <div>Вы уже забронировали данную книгу. Подойдите в библиотеку для получения экземпляра.</div>
+      </div>
+      <a href="{% url 'library:my_books' %}" class="btn btn-outline" style="width: 100%;">
+        Посмотреть в моих бронях →
+      </a>
+    {% elif has_overdue %}
+      <div class="alert-box alert-danger" style="text-align: left; margin-bottom: 12px;">
+        <div>⛔</div>
+        <div>
+          <strong>Бронирование заблокировано!</strong><br>
+          У вас есть просроченная книга в библиотеке. Верните задолженность для получения доступа к бронированию.
+        </div>
+      </div>
+      <button class="btn btn-danger" style="width: 100%; opacity: 0.6; cursor: not-allowed;" disabled>
+        Бронь заблокирована (Долг)
+      </button>
+    {% elif total_held >= max_limit %}
+      <div class="alert-box alert-warning" style="text-align: left; margin-bottom: 12px;">
+        <div>⚠️</div>
+        <div>
+          Исчерпан лимит книг (максимум {{ max_limit }} книги на читателя). Сдайте прочитанную литературу.
+        </div>
+      </div>
+      <button class="btn btn-outline" style="width: 100%; opacity: 0.6; cursor: not-allowed;" disabled>
+        Лимит превышен
+      </button>
+    {% elif book.available_copies_count == 0 %}
+      <div class="alert-box alert-warning" style="text-align: left; margin-bottom: 12px;">
+        <div>⏳</div>
+        <div>Все экземпляры выданы или забронированы другими читателями.</div>
+      </div>
+      <button class="btn btn-outline" style="width: 100%; opacity: 0.6; cursor: not-allowed;" disabled>
+        Нет свободных экземпляров
+      </button>
+    {% else %}
+      <form method="post" action="{% url 'library:reserve_book' book.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1rem;">
+          🔖 Забронировать книгу
+        </button>
+      </form>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px;">
+        Бронь сохраняется за вами в течение 3 рабочих дней
+      </div>
+    {% endif %}
+
+    {% if request.user.is_teacher %}
+      <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+        <a href="{% url 'library:recommend_book' book.id %}" class="btn btn-outline btn-sm" style="width: 100%;">
+          ⭐ Рекомендовать ученикам
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Book Details & Copies Table -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📖 Данные издания</h2>
+      </div>
+
+      <div class="book-meta-grid" style="display: grid; gap: 14px; margin-bottom: 24px; font-size: 0.92rem;">
+        <div>
+          <span style="color: var(--text-muted);">Автор:</span>
+          <strong style="display: block; color: var(--text-main);">{{ book.author }}</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-muted);">Жанр / Категория:</span>
+          <strong style="display: block; color: var(--text-main);">{{ book.genre.name|default:"Общий фонд" }}</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-muted);">Рекомендуемый класс:</span>
+          <strong style="display: block; color: var(--text-main);">{% if book.grade_level %}{{ book.grade_level }} класс{% else %}Для всех классов{% endif %}</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-muted);">Язык издания:</span>
+          <strong style="display: block; color: var(--text-main);">{{ book.get_language_display }}</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-muted);">Год издания:</span>
+          <strong style="display: block; color: var(--text-main);">{{ book.publication_year|default:"—" }}</strong>
+        </div>
+        <div>
+          <span style="color: var(--text-muted);">ISBN:</span>
+          <code style="display: block;">{{ book.isbn|default:"—" }}</code>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Аннотация / Описание</h3>
+        <div style="font-size: 0.92rem; color: var(--text-main); line-height: 1.6; white-space: pre-line;">
+          {{ book.description|default:"Описание для данной книги ещё не добавлено." }}
+        </div>
+      </div>
+
+      <!-- Teacher Recommendations on this book -->
+      {% if recommendations %}
+        <div style="margin-bottom: 24px; padding: 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md);">
+          <h4 style="font-size: 0.92rem; font-weight: 700; color: #92400e; margin-bottom: 6px;">
+            ⭐ Рекомендация преподавателя:
+          </h4>
+          {% for r in recommendations %}
+            <div style="font-size: 0.88rem; color: #78350f; line-height: 1.5; margin-bottom: 4px;">
+              «{{ r.note }}» — <em>{{ r.teacher.display_name }}</em> {% if r.target_class %}(для {{ r.target_class.name }}){% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <!-- Copies Status List -->
+      <div>
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: var(--text-main);">
+          Экземпляры книги в фонде ({{ book.copies.count }} шт.)
+        </h3>
+        <div class="table-responsive">
+          <table class="custom-table" style="font-size: 0.86rem;">
+            <thead>
+              <tr>
+                <th>Инвентарный №</th>
+                <th>Состояние</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in book.copies.all %}
+                <tr>
+                  <td><code>{{ c.inventory_number }}</code></td>
+                  <td>{{ c.get_condition_display }}</td>
+                  <td>
+                    {% if c.status == 'available' %}
+                      <span class="badge badge-success">В наличии</span>
+                    {% elif c.status == 'reserved' %}
+                      <span class="badge badge-warning">Забронирован</span>
+                    {% elif c.status == 'borrowed' %}
+                      <span class="badge badge-danger">Выдан на руки</span>
+                    {% else %}
+                      <span class="badge badge-secondary">Списан</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 16px;">
+                    Экземпляры не зарегистрированы
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

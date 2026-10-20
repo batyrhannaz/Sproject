@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Расписание звонков | Школа №1{% endblock %}
+{% block page_title %}Расписание звонков{% endblock %}
+{% block page_subtitle %}График учебных занятий и перемен для 1-й и 2-й смен{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🌅 1-я смена (Утреннее расписание)</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Урок</th>
+            <th>Время проведения</th>
+            <th>Перемена</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in shift1 %}
+            <tr>
+              <td><strong>№ {{ b.lesson_number }}</strong></td>
+              <td>{{ b.start_time|time:"H:i" }} — {{ b.end_time|time:"H:i" }}</td>
+              <td><span class="badge badge-secondary">{{ b.break_duration|default:"10 мин" }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🌇 2-я смена (Дневное расписание)</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Урок</th>
+            <th>Время проведения</th>
+            <th>Перемена</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in shift2 %}
+            <tr>
+              <td><strong>№ {{ b.lesson_number }}</strong></td>
+              <td>{{ b.start_time|time:"H:i" }} — {{ b.end_time|time:"H:i" }}</td>
+              <td><span class="badge badge-secondary">{{ b.break_duration|default:"10 мин" }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
